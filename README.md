@@ -1,3 +1,10 @@
+Hi everyone, welcome to my initial repository for my master's thesis: "Your Friend Tailor"
+
+In today's age, online shopping will continue to increase. 
+It has been shown that consumers are concerned with the lack of accurate sizing measurements given by fashion vendors.
+My work intends to implement a standard sizing metric as well as utilizing State of the Art computer vision technology
+to take one photo of a person and accurately gauge their garment measurements.
+
 Starting off, the initial py file is testing the accuracy of MiDaS's depth estimation model in conjunction of
 Json data from a dataset called Deepfashion2.
 
