@@ -21,7 +21,6 @@ for item_key, item_value in json_data.items():  # Use items() to get both key an
 
 # Now, `keypoints_data` contains keypoints organized by category name, hopefully
 
-
 # Load  MiDaS model
 midas_model_type = "DPT_Large" 
 midas = torch.hub.load("intel-isl/MiDaS", midas_model_type)
@@ -78,7 +77,7 @@ plt.show()
 def depth_map_to_point_cloud(depth_map):
     # Assuming the depth_map is the depth in some unit, matching the image resolution
 
-    # These intrinsic parameters are assumed, you might need to adjust them
+    # These intrinsic parameters are assumed, might need to adjust them
     focal_length_x = depth_map.shape[1]  # Placeholder for focal length in x
     focal_length_y = depth_map.shape[0]  # Placeholder for focal length in y
     center_x = depth_map.shape[1] // 2
