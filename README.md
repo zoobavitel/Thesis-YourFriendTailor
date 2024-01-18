@@ -16,3 +16,5 @@ I'm still testing and trying to make sure everything works accordingly.
 The Deepfashion2 data must be requested from their respective authors/creators in order for this file to work.
 
 Eventually, I'd like to combine the efforts of MiDaS and Lite-HRNet in order to visualize point cloud data from any image, then do some geometry calculations to provide accurate garment measurements.
+
+I may have to switch from monocular analysis to multi photo analysis, but for now, don't worry about that. 
