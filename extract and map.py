@@ -89,20 +89,19 @@ with torch.no_grad():
 # Convert depth map to a NumPy array
 depth_map = depth_prediction.cpu().numpy()
 
-# Map keypoints to depth map
-keypoints_with_depth = {}
-for category, keypoints in keypoints_data.items():
-    keypoints_with_depth[category] = [(x, y, depth_map[y, x]) for x, y in keypoints]
+# Use the function to get the 3D points
+points_3d = depth_map_to_point_cloud(depth_map)
 
-# keypoints_with_depth now contains the keypoints with their depth value and can be transferred to point cloud
+# Create a PointCloud object from Open3D
+point_cloud_o3d = o3d.geometry.PointCloud()
+point_cloud_o3d.points = o3d.utility.Vector3dVector(points_3d)
 
-# Normalize depth map for visualization
+# Draw keypoints on depth map for visualization
 depth_map_normalized = cv2.normalize(depth_map, None, 0, 255, cv2.NORM_MINMAX)
 depth_map_visual = cv2.applyColorMap(depth_map_normalized.astype('uint8'), cv2.COLORMAP_JET)
 
-# Draw keypoints on depth map
-for category, keypoints in keypoints_with_depth.items():
-    for x, y, depth in keypoints:
+for category, keypoints in keypoints_data.items():
+    for x, y in keypoints:
         # white color for keypoints, change color if needed
         cv2.circle(depth_map_visual, (int(x), int(y)), 5, (255, 255, 255), -1)
 
@@ -110,13 +109,6 @@ for category, keypoints in keypoints_with_depth.items():
 plt.imshow(depth_map_visual)
 plt.axis('off')  # Hide the axis
 plt.show()
-
-# Use the function to get the 3D points
-points_3d = depth_map_to_point_cloud(depth_map)
-
-# Create a PointCloud object from Open3D
-point_cloud_o3d = o3d.geometry.PointCloud()
-point_cloud_o3d.points = o3d.utility.Vector3dVector(points_3d)
 
 # Visualize the point cloud
 o3d.visualization.draw_geometries([point_cloud_o3d])
@@ -130,3 +122,32 @@ file_path = filedialog.asksaveasfilename(defaultextension=".ply", filetypes=[("P
 
 # Save the point cloud as a .ply file
 o3d.io.write_point_cloud(file_path, point_cloud_o3d)
+
+
+"""
+# Estimate normals
+o3d.geometry.estimate_normals(point_cloud_o3d, search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+
+# Create a triangle mesh from the point cloud using the Ball-Pivoting Algorithm
+radius = 0.02
+bpa_mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(point_cloud_o3d, o3d.utility.DoubleVector([radius, radius * 2]))
+
+# Visualize the mesh
+o3d.visualization.draw_geometries([bpa_mesh])
+
+# Assume `keypoints_2d` is a list of 2D keypoints from the JSON
+# and `depth_map` is the depth map
+
+keypoints_3d = []
+
+for keypoint_2d in keypoints_2d:
+    # Project the 2D keypoint onto the depth map
+    depth = depth_map[int(keypoint_2d[1]), int(keypoint_2d[0])]
+    
+    # Convert the 2D keypoint and depth to a 3D point
+    keypoint_3d = convert_2d_to_3d(keypoint_2d, depth, camera_parameters)
+    
+    keypoints_3d.append(keypoint_3d)
+
+o3d.visualization.draw_geometries([keypoints])
+"""
