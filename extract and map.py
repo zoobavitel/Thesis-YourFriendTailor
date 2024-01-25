@@ -29,22 +29,63 @@ def depth_map_to_point_cloud(depth_map):
     x, y = np.meshgrid(np.arange(depth_map.shape[1]), np.arange(depth_map.shape[0]))
     
     # Normalize (x, y) coordinates to the camera coordinates
-    x = (x - center_x) / focal_length_x
-    y = (y - center_y) / focal_length_y
+    x = (x - center_x) #/ focal_length_x
+    y = (y - center_y) #/ focal_length_y
     
     # Unproject
     # z keeps the original depth values, x and y are reprojected
     z = depth_map
-    x = x * z
-    y = y * z
+    #x = x * z
+    #y = y * z
     
     # Stack to create 3D point cloud
     point_cloud = np.dstack((x, y, z)).reshape(-1, 3)
     
     return point_cloud
 
+def extract_metadata(image_path):
+    """
+    Extracts metadata from an image with a fail check if no metadata is available.
+    Focuses on camera parameters such as focal length.
+
+    Parameters:
+    image_path (str): Path to the image file.
+
+    Returns:
+    dict: Dictionary containing extracted metadata or a failure message.
+    """
+    try:
+        # Open image file
+        img = Image.open(image_path)
+
+        # Extract EXIF data
+        exif_data = img._getexif()
+
+        # Check if the image contains EXIF data
+        if exif_data is None:
+            return {"Error": "No metadata available in the image."}
+
+        # Decode EXIF data
+        metadata = {}
+        for tag, value in exif_data.items():
+            decoded_tag = TAGS.get(tag, tag)
+            if decoded_tag == "MakerNote":
+                # Skip MakerNote as it often contains unreadable data
+                continue
+            metadata[decoded_tag] = value
+
+        # Check if metadata is empty after extraction
+        if not metadata:
+            return {"Error": "No metadata available in the image."}
+
+        return metadata
+
+    except IOError:
+        return {"Error": "Unable to open or read the image file."}
+
+
 #use json from deepfashion training
-json_file_path = 'C:/Users/crisz/Documents/ECU Classes/CSCI Graduate/Thesis/train/annos/000259.json'
+json_file_path = 'C:/Users/crisz/Documents/ECU Classes/CSCI Graduate/Thesis/train/annos/000207.json'
 
 with open(json_file_path, 'r') as file:
     json_data = json.load(file)
@@ -70,7 +111,9 @@ midas_transforms = torch.hub.load("intel-isl/MiDaS", "transforms")
 transform = midas_transforms.dpt_transform if midas_model_type in ["DPT_Large", "DPT_Hybrid"] else midas_transforms.small_transform
 
 # Load image corresponding to the JSON file
-image_path = 'C:/Users/crisz/Documents/ECU Classes/CSCI Graduate/Thesis/train/image/000259.jpg' # Replace with the correct path
+image_path = 'C:/Users/crisz/Documents/ECU Classes/CSCI Graduate/Thesis/train/image/000207.jpg'
+metadata = extract_metadata(image_path)
+print(metadata) 
 img = np.array(Image.open(image_path))
 
 # Apply MiDaS transforms to image
@@ -89,14 +132,27 @@ with torch.no_grad():
 # Convert depth map to a NumPy array
 depth_map = depth_prediction.cpu().numpy()
 
+# After converting the depth map to a NumPy array
+print(depth_map.shape)
+print(np.count_nonzero(depth_map))
+
+# Scale the depth map
+depth_map_scaled = depth_map * 30  # Adjust the scaling factor as needed
+
 # Use the function to get the 3D points
-points_3d = depth_map_to_point_cloud(depth_map)
+points_3d = depth_map_to_point_cloud(depth_map_scaled)
 
 # Create a PointCloud object from Open3D
 point_cloud_o3d = o3d.geometry.PointCloud()
+points_3d = np.asarray(points_3d)
+points_3d[:, 0] = -points_3d[:, 0]  # Flip the x-coordinates
+points_3d[:, 1] = -points_3d[:, 1]  # Flip the y-coordinates
 point_cloud_o3d.points = o3d.utility.Vector3dVector(points_3d)
 
-# Draw keypoints on depth map for visualization
+# After creating the point cloud
+print(np.asarray(point_cloud_o3d.points).shape)
+
+
 depth_map_normalized = cv2.normalize(depth_map, None, 0, 255, cv2.NORM_MINMAX)
 depth_map_visual = cv2.applyColorMap(depth_map_normalized.astype('uint8'), cv2.COLORMAP_JET)
 
@@ -122,32 +178,3 @@ file_path = filedialog.asksaveasfilename(defaultextension=".ply", filetypes=[("P
 
 # Save the point cloud as a .ply file
 o3d.io.write_point_cloud(file_path, point_cloud_o3d)
-
-
-"""
-# Estimate normals
-o3d.geometry.estimate_normals(point_cloud_o3d, search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
-
-# Create a triangle mesh from the point cloud using the Ball-Pivoting Algorithm
-radius = 0.02
-bpa_mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(point_cloud_o3d, o3d.utility.DoubleVector([radius, radius * 2]))
-
-# Visualize the mesh
-o3d.visualization.draw_geometries([bpa_mesh])
-
-# Assume `keypoints_2d` is a list of 2D keypoints from the JSON
-# and `depth_map` is the depth map
-
-keypoints_3d = []
-
-for keypoint_2d in keypoints_2d:
-    # Project the 2D keypoint onto the depth map
-    depth = depth_map[int(keypoint_2d[1]), int(keypoint_2d[0])]
-    
-    # Convert the 2D keypoint and depth to a 3D point
-    keypoint_3d = convert_2d_to_3d(keypoint_2d, depth, camera_parameters)
-    
-    keypoints_3d.append(keypoint_3d)
-
-o3d.visualization.draw_geometries([keypoints])
-"""
