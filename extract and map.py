@@ -45,7 +45,7 @@ def depth_map_to_point_cloud(depth_map):
     return point_cloud
 
 # Original JSON file path
-json_file_path = 'C:/Users/crisz/Documents/ECU Classes/CSCI Graduate/Thesis/train/annos/000160.json'
+json_file_path = 'C:/Users/crisz/Documents/ECU Classes/CSCI Graduate/Thesis/train/annos/000259.json'
 
 # Define output directories
 depth_map_dir = r"C:\Users\crisz\Documents\ECU Classes\CSCI Graduate\Thesis\Depth Map Output PNG"
@@ -140,6 +140,12 @@ plt.imshow(depth_map_visual)
 plt.axis('off')  # Hide the axis
 plt.show()
 
+# Construct the file path for the depth map image
+depth_map_file = os.path.join(depth_map_dir, f"{base_filename}_depth_map.png")
+
+# Save the depth map image
+cv2.imwrite(depth_map_file, depth_map_visual)
+
 # Visualize the point cloud
 o3d.visualization.draw_geometries([point_cloud_o3d])
 
@@ -162,7 +168,6 @@ o3d.visualization.draw_geometries([poisson_mesh])
 file_number = os.path.splitext(os.path.basename(image_path))[0]
 
 # Use the file number when saving the output files
-depth_map_file = os.path.join(depth_map_dir, f"{file_number}_depth_map.png")
 ply_file = os.path.join(ply_output_dir, f"{file_number}_point_cloud.ply")
 mesh_file = os.path.join(mesh_output_dir, f"{file_number}_mesh.obj")
 
