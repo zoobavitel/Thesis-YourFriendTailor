@@ -64,6 +64,9 @@ def depth_map_to_point_cloud(depth_map):
     
     return point_cloud
 
+# Allowed categories for tops and dresses
+allowed_categories = ["short sleeve top", "long sleeve top", "vest dress", "long sleeve dress", "short sleeve dress", "sling", "sling dress"]
+
 # Original JSON file path
 json_file_path = 'C:/Users/crisz/Documents/ECU Classes/CSCI Graduate/Thesis/train/annos/000259.json'
 
@@ -88,15 +91,14 @@ image_path = os.path.join('C:/Users/crisz/Documents/ECU Classes/CSCI Graduate/Th
 img = np.array(Image.open(image_path))
 
 # Check conditions
-if json_data['item1']['zoom_in'] != 1 and json_data['item1']['viewpoint'] not in [2, 3]:
+if json_data['item1']['zoom_in'] != 1 or json_data['item1']['viewpoint'] not in [2, 3]:
     print("Conditions not met. Skipping this file.")
     sys.exit()  # Stop the process
 
 keypoints_data = {}
-for item_key, item_value in json_data.items():  # Use items() to get both key and value
-    if isinstance(item_value, dict) and 'landmarks' in item_value:  # Check if it's a dictionary and has 'landmarks'
+for item_key, item_value in json_data.items():
+    if isinstance(item_value, dict) and 'landmarks' in item_value and item_value['category_name'] in allowed_categories:  # Check if it's a dictionary, has 'landmarks', and is an allowed category
         keypoints = item_value['landmarks']
-        # Keypoints are stored in triples (x-coordinate, y-coordinate, visibility)
         keypoints_data[item_value['category_name']] = [(keypoints[i], keypoints[i + 1]) for i in range(0, len(keypoints), 3) if keypoints[i + 2] > 0]
 
 # Now, `keypoints_data` contains keypoints organized by category name, hopefully
@@ -135,38 +137,51 @@ for category, keypoints in keypoints_data.items():
         # white color for keypoints, change color if needed
         cv2.circle(depth_map_visual, (int(x), int(y)), 5, (255, 255, 255), -1)
 
-# Show depth map with keypoints
-plt.imshow(depth_map_visual)
-plt.axis('off')  # Hide the axis
-plt.show()
-
 # After converting the depth map to a NumPy array
 print(depth_map.shape)
 print(np.count_nonzero(depth_map))
 
-# Scale the depth map
-depth_map_scaled = depth_map * 30  # Adjust the scaling factor as needed
+# Extract keypoints for 'item1' which represents the shirt
+shirt_keypoints = []
+if 'item1' in json_data and 'landmarks' in json_data['item1']:
+    keypoints = json_data['item1']['landmarks']
+    shirt_keypoints = [(keypoints[i], keypoints[i + 1]) for i in range(0, len(keypoints), 3) if keypoints[i + 2] > 0]
 
-# Extract keypoints from JSON for segmentation
-# Assuming we want to use all keypoints for creating the mask.
-# Need to organize them in the order that outlines the silhouette of the person.
-segment_keypoints = []
-for item in keypoints_data.values():
-    segment_keypoints.extend(item)
+# Check if shirt keypoints were found
+if not shirt_keypoints:
+    print("No shirt keypoints found. Skipping this file.")
+    sys.exit()
 
-# Create the segmentation mask
-mask = np.zeros_like(depth_map_scaled, dtype=np.uint8)
-segment_keypoints_np = np.array([segment_keypoints], dtype=np.int32)  # Needs to be a 3D numpy array
-cv2.fillPoly(mask, segment_keypoints_np, 255)  # Fill with white where the person is
+# Create the segmentation mask for the shirt
+mask = np.zeros_like(depth_map, dtype=np.uint8)  # Use the original depth map's shape for mask creation
+poly = np.array([shirt_keypoints], dtype=np.int32)
+cv2.fillPoly(mask, poly, 255)  # Fill with white where the shirt is
 
-# Apply the mask to the depth map to segment the person
-segmented_depth_map = cv2.bitwise_and(depth_map_scaled, depth_map_scaled, mask=mask)
+# Apply the mask to the depth map to segment the shirt
+segmented_depth_map = cv2.bitwise_and(depth_map, depth_map, mask=mask)
 
-# Now use the segmented depth map to create the point cloud
-points_3d = depth_map_to_point_cloud(segmented_depth_map)
+# Now scale the segmented depth map
+segmented_depth_map_scaled = segmented_depth_map * 30  # Adjust the scaling factor as needed
 
-# Use the function to get the 3D points
-points_3d = depth_map_to_point_cloud(depth_map_scaled)
+# Visualize the original and segmented depth map for comparison
+# Original depth map visualization
+plt.figure(figsize=(10, 5))
+plt.subplot(1, 2, 1)
+plt.imshow(depth_map_visual)
+plt.title('Original Depth Map')
+plt.axis('off')
+
+# Segmented and scaled depth map visualization
+segmented_depth_map_visual = cv2.normalize(segmented_depth_map_scaled, None, 0, 255, cv2.NORM_MINMAX)
+segmented_depth_map_visual = cv2.applyColorMap(segmented_depth_map_visual.astype('uint8'), cv2.COLORMAP_JET)
+plt.subplot(1, 2, 2)
+plt.imshow(segmented_depth_map_visual)
+plt.title('Segmented Depth Map')
+plt.axis('off')
+plt.show()
+
+# Use the function to convert the scaled, segmented depth map to a 3D point cloud
+points_3d = depth_map_to_point_cloud(segmented_depth_map_scaled)
 
 # Create a PointCloud object from Open3D
 point_cloud_o3d = o3d.geometry.PointCloud()
