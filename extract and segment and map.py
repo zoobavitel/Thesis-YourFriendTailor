@@ -74,11 +74,14 @@ json_file_path = 'C:/Users/crisz/Documents/ECU Classes/CSCI Graduate/Thesis/trai
 depth_map_dir = r"C:\Users\crisz\Documents\ECU Classes\CSCI Graduate\Thesis\Depth Map Output PNG"
 ply_output_dir = r"C:\Users\crisz\Documents\ECU Classes\CSCI Graduate\Thesis\PLY output"
 mesh_output_dir = r"C:\Users\crisz\Documents\ECU Classes\CSCI Graduate\Thesis\mesh output"
+segmented_depth_map_dir = r"C:\Users\crisz\Documents\ECU Classes\CSCI Graduate\Thesis\segment map"
+
 
 # Ensure directories exist
 os.makedirs(depth_map_dir, exist_ok=True)
 os.makedirs(ply_output_dir, exist_ok=True)
 os.makedirs(mesh_output_dir, exist_ok=True)
+os.makedirs(segmented_depth_map_dir, exist_ok=True)
 
 # Extract the base filename without the extension
 base_filename = os.path.splitext(os.path.basename(json_file_path))[0]
@@ -198,12 +201,6 @@ point_cloud_o3d.points = o3d.utility.Vector3dVector(points_3d)
 # After creating the point cloud
 print(np.asarray(point_cloud_o3d.points).shape)
 
-# Construct the file path for the depth map image
-depth_map_file = os.path.join(depth_map_dir, f"{base_filename}_depth_map.png")
-
-# Save the depth map image
-cv2.imwrite(depth_map_file, depth_map_visual)
-
 # Visualize the point cloud
 o3d.visualization.draw_geometries([point_cloud_o3d])
 
@@ -216,10 +213,19 @@ poisson_mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(point_c
 # Compute the vertices' normals
 poisson_mesh.compute_vertex_normals()
 
-# Set the color of the mesh (RGB values range from 0 to 1, for example, red color)
-poisson_mesh.paint_uniform_color([1, 0, 0])  # Red color
+# Compute the distance of each vertex from the camera
+distances = np.linalg.norm(np.asarray(poisson_mesh.vertices), axis=1)
 
-# Visualize the mesh with a red color
+# Normalize the distances to the range [0, 1]
+distances_normalized = (distances - distances.min()) / (distances.max() - distances.min())
+
+# Create a colormap based on the distances
+colors = plt.cm.viridis(distances_normalized)
+
+# Set the color of each vertex
+poisson_mesh.vertex_colors = o3d.utility.Vector3dVector(colors[:, :3])
+
+# Visualize the mesh
 o3d.visualization.draw_geometries([poisson_mesh])
 
 # Extract the base name of the file and remove the extension to get the number
@@ -228,9 +234,14 @@ file_number = os.path.splitext(os.path.basename(image_path))[0]
 # Use the file number when saving the output files
 ply_file = os.path.join(ply_output_dir, f"{file_number}_point_cloud.ply")
 mesh_file = os.path.join(mesh_output_dir, f"{file_number}_mesh.obj")
+segment_file = os.path.join(segmented_depth_map_dir, f"{file_number}_segment.png")
+depth_map_file = os.path.join(depth_map_dir, f"{base_filename}_depth_map.png")
 
-# Save the depth map visual
+# Save the depth map image
 cv2.imwrite(depth_map_file, depth_map_visual)
+
+# Save the segment map visual
+cv2.imwrite(segment_file, segmented_depth_map_visual)
 
 # Save the point cloud
 o3d.io.write_point_cloud(ply_file, point_cloud_o3d)
