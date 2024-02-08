@@ -20,9 +20,29 @@ def depth_map_to_point_cloud(depth_map):
     Returns:
         numpy.ndarray: The 3D point cloud.
     """
-    # These parameters are assumed, might need to adjust them
-    focal_length_x = depth_map.shape[1]  # Placeholder for focal length in x
-    focal_length_y = depth_map.shape[0]  # Placeholder for focal length in y
+    """
+    image_height = depth_map.shape[0]
+    image_width = depth_map.shape[1]
+
+    # Convert FOV from degrees to radians
+    fov_horizontal_rad = np.deg2rad(60)
+
+    # Calculate focal length in pixels
+    focal_length_x = image_width / (2 * np.tan(fov_horizontal_rad / 2))
+
+    # If the aspect ratio is 1:1
+    focal_length_y = focal_length_x
+
+    # If the aspect ratio is not 1:1, calculate the vertical FOV
+    # aspect_ratio = image_width / image_height
+    # fov_vertical_rad = 2 * np.arctan(np.tan(fov_horizontal_rad / 2) / aspect_ratio)
+    # focal_length_y = image_height / (2 * np.tan(fov_vertical_rad / 2))
+
+    # Calculate optical centers
+    center_x = image_width / 2
+    center_y = image_height / 2
+    """
+    
     center_x = depth_map.shape[1] // 2
     center_y = depth_map.shape[0] // 2
 
@@ -68,7 +88,7 @@ image_path = os.path.join('C:/Users/crisz/Documents/ECU Classes/CSCI Graduate/Th
 img = np.array(Image.open(image_path))
 
 # Check conditions
-if json_data['item1']['zoom_in'] != 1 or json_data['item1']['viewpoint'] not in [2, 3]:
+if json_data['item1']['zoom_in'] != 1 and json_data['item1']['viewpoint'] not in [2, 3]:
     print("Conditions not met. Skipping this file.")
     sys.exit()  # Stop the process
 
@@ -108,6 +128,18 @@ with torch.no_grad():
 # Convert depth map to a NumPy array
 depth_map = depth_prediction.cpu().numpy()
 
+depth_map_normalized = cv2.normalize(depth_map, None, 0, 255, cv2.NORM_MINMAX)
+depth_map_visual = cv2.applyColorMap(depth_map_normalized.astype('uint8'), cv2.COLORMAP_JET)
+for category, keypoints in keypoints_data.items():
+    for x, y in keypoints:
+        # white color for keypoints, change color if needed
+        cv2.circle(depth_map_visual, (int(x), int(y)), 5, (255, 255, 255), -1)
+
+# Show depth map with keypoints
+plt.imshow(depth_map_visual)
+plt.axis('off')  # Hide the axis
+plt.show()
+
 # After converting the depth map to a NumPy array
 print(depth_map.shape)
 print(np.count_nonzero(depth_map))
@@ -127,18 +159,6 @@ point_cloud_o3d.points = o3d.utility.Vector3dVector(points_3d)
 
 # After creating the point cloud
 print(np.asarray(point_cloud_o3d.points).shape)
-
-depth_map_normalized = cv2.normalize(depth_map, None, 0, 255, cv2.NORM_MINMAX)
-depth_map_visual = cv2.applyColorMap(depth_map_normalized.astype('uint8'), cv2.COLORMAP_JET)
-for category, keypoints in keypoints_data.items():
-    for x, y in keypoints:
-        # white color for keypoints, change color if needed
-        cv2.circle(depth_map_visual, (int(x), int(y)), 5, (255, 255, 255), -1)
-
-# Show depth map with keypoints
-plt.imshow(depth_map_visual)
-plt.axis('off')  # Hide the axis
-plt.show()
 
 # Construct the file path for the depth map image
 depth_map_file = os.path.join(depth_map_dir, f"{base_filename}_depth_map.png")
