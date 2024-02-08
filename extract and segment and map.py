@@ -163,10 +163,17 @@ segmented_depth_map = cv2.bitwise_and(depth_map, depth_map, mask=mask)
 # Now scale the segmented depth map
 segmented_depth_map_scaled = segmented_depth_map * 30  # Adjust the scaling factor as needed
 
-# Visualize the original and segmented depth map for comparison
+# Visualize the original image, original depth map, and segmented depth map for comparison
+plt.figure(figsize=(15, 5))
+
+# Original image visualization
+plt.subplot(1, 3, 1)
+plt.imshow(img)
+plt.title('Original Image')
+plt.axis('off')
+
 # Original depth map visualization
-plt.figure(figsize=(10, 5))
-plt.subplot(1, 2, 1)
+plt.subplot(1, 3, 2)
 plt.imshow(depth_map_visual)
 plt.title('Original Depth Map')
 plt.axis('off')
@@ -174,19 +181,17 @@ plt.axis('off')
 # Segmented and scaled depth map visualization
 segmented_depth_map_visual = cv2.normalize(segmented_depth_map_scaled, None, 0, 255, cv2.NORM_MINMAX)
 segmented_depth_map_visual = cv2.applyColorMap(segmented_depth_map_visual.astype('uint8'), cv2.COLORMAP_JET)
-plt.subplot(1, 2, 2)
+plt.subplot(1, 3, 3)
 plt.imshow(segmented_depth_map_visual)
 plt.title('Segmented Depth Map')
 plt.axis('off')
-plt.show()
 
-# Use the function to convert the scaled, segmented depth map to a 3D point cloud
+plt.show()
 points_3d = depth_map_to_point_cloud(segmented_depth_map_scaled)
 
 # Create a PointCloud object from Open3D
 point_cloud_o3d = o3d.geometry.PointCloud()
 points_3d = np.asarray(points_3d)
-points_3d[:, 0] = -points_3d[:, 0]  # Flip the x-coordinates
 points_3d[:, 1] = -points_3d[:, 1]  # Flip the y-coordinates
 point_cloud_o3d.points = o3d.utility.Vector3dVector(points_3d)
 
