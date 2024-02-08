@@ -188,11 +188,10 @@ plt.subplot(1, 3, 3)
 plt.imshow(segmented_depth_map_visual)
 plt.title('Segmented Depth Map')
 plt.axis('off')
-
 plt.show()
-points_3d = depth_map_to_point_cloud(segmented_depth_map_scaled)
 
 # Create a PointCloud object from Open3D
+points_3d = depth_map_to_point_cloud(segmented_depth_map_scaled)
 point_cloud_o3d = o3d.geometry.PointCloud()
 points_3d = np.asarray(points_3d)
 points_3d[:, 1] = -points_3d[:, 1]  # Flip the y-coordinates
@@ -248,4 +247,3 @@ o3d.io.write_point_cloud(ply_file, point_cloud_o3d)
 
 # Save the mesh
 o3d.io.write_triangle_mesh(mesh_file, poisson_mesh)
-
