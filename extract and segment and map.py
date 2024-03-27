@@ -106,6 +106,9 @@ for item_key, item_value in json_data.items():
 
 # Now, `keypoints_data` contains keypoints organized by category name, hopefully
 
+# Extract the base name of the file and remove the extension to get the number
+file_number = os.path.splitext(os.path.basename(image_path))[0]
+
 # Load  MiDaS model
 midas_model_type = "DPT_Large" 
 midas = torch.hub.load("intel-isl/MiDaS", midas_model_type)
@@ -133,6 +136,7 @@ with torch.no_grad():
 # Convert depth map to a NumPy array
 depth_map = depth_prediction.cpu().numpy()
 
+# Normalize the depth map + apply color map / keypoints to depth map
 depth_map_normalized = cv2.normalize(depth_map, None, 0, 255, cv2.NORM_MINMAX)
 depth_map_visual = cv2.applyColorMap(depth_map_normalized.astype('uint8'), cv2.COLORMAP_JET)
 for category, keypoints in keypoints_data.items():
@@ -190,6 +194,16 @@ plt.title('Segmented Depth Map')
 plt.axis('off')
 plt.show()
 
+file_number = os.path.splitext(os.path.basename(image_path))[0]
+segment_file = os.path.join(segmented_depth_map_dir, f"{file_number}_segment.png")
+depth_map_file = os.path.join(depth_map_dir, f"{base_filename}_depth_map.png")
+
+# Save the depth map image
+cv2.imwrite(depth_map_file, depth_map_visual)
+
+# Save the segment map visual
+cv2.imwrite(segment_file, segmented_depth_map_visual)
+
 # Create a PointCloud object from Open3D
 points_3d = depth_map_to_point_cloud(segmented_depth_map_scaled)
 point_cloud_o3d = o3d.geometry.PointCloud()
@@ -199,6 +213,11 @@ point_cloud_o3d.points = o3d.utility.Vector3dVector(points_3d)
 
 # After creating the point cloud
 print(np.asarray(point_cloud_o3d.points).shape)
+
+ply_file = os.path.join(ply_output_dir, f"{file_number}_point_cloud.ply")
+
+# Save the point cloud
+o3d.io.write_point_cloud(ply_file, point_cloud_o3d)
 
 # Visualize the point cloud
 o3d.visualization.draw_geometries([point_cloud_o3d])
@@ -227,23 +246,8 @@ poisson_mesh.vertex_colors = o3d.utility.Vector3dVector(colors[:, :3])
 # Visualize the mesh
 o3d.visualization.draw_geometries([poisson_mesh])
 
-# Extract the base name of the file and remove the extension to get the number
-file_number = os.path.splitext(os.path.basename(image_path))[0]
-
 # Use the file number when saving the output files
-ply_file = os.path.join(ply_output_dir, f"{file_number}_point_cloud.ply")
 mesh_file = os.path.join(mesh_output_dir, f"{file_number}_mesh.obj")
-segment_file = os.path.join(segmented_depth_map_dir, f"{file_number}_segment.png")
-depth_map_file = os.path.join(depth_map_dir, f"{base_filename}_depth_map.png")
-
-# Save the depth map image
-cv2.imwrite(depth_map_file, depth_map_visual)
-
-# Save the segment map visual
-cv2.imwrite(segment_file, segmented_depth_map_visual)
-
-# Save the point cloud
-o3d.io.write_point_cloud(ply_file, point_cloud_o3d)
 
 # Save the mesh
 o3d.io.write_triangle_mesh(mesh_file, poisson_mesh)
